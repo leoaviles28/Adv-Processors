@@ -1,0 +1,326 @@
+
+.data			# What follows will be data
+error: .asciiz "   Error in equation        "
+inputString: .space 64	# set aside 64 bytes to store the input string
+prompt: .asciiz "   Enter a equation: "
+display: .asciiz "Your answer is:"
+.text			# What follows will be actual code
+
+
+main: 
+	# Display prompt
+	la	$a0, prompt	# display the prompt to begin
+	li	$v0, 4	# system call code to print a string to console
+	syscall
+	# get the string from console
+	la	$a0, inputString	# load $a0 with the address of inputString; procedure: $a0 = buffer, $a1 = length of buffer
+	la	$a1, inputString	# maximum number of character
+	li	$v0, 8	# The system call code to read a string input
+	syscall
+move $s0,$a0
+
+li $s6,0 #counts the number of (
+li $s4,0 #counts the number of )
+strcpy:
+	addi $sp, $sp, -4 #adjust stack for 1 item
+	sw $s0, 0($sp)  # save $s0
+	add $s0, $zero, $zero #i = 0
+L1: add $t1,$s0,$a1 #addr of y[i] in $t1
+     lbu $t2, 0($t1) #$st2 = y[i]
+     li $s5,40 #places ascii ( in reg
+     li $t3,41 #places ascii ) in reg
+     li $t4,42#places ascii * in reg
+     li $t5,43#places ascii + in reg
+     li $t6,45#places ascii - in reg
+     li $t7,47#places ascii / in reg
+     li $t8,61#places ascii = in reg
+     #The next 6 beq statements will handle the errors
+     beq $t2,$s5,Handleleftpara
+     beq $t2,$t7,Handlediv
+     beq $t2,$t3,HandlerightPara
+     beq $t2,$t5,HandleAddition
+     beq $t2,$t6,HandleSubtract
+     beq $t2,$t4,HandleMulti
+     ReturnFromCheck:
+     beq $t2, $zero,L2 # exit loop if y[i] == 0
+     addi $s0,$s0,1 # i = i + i
+     j L1 #next iteration of loop
+
+L2: 
+	bne $s6,$s4,ERROR 
+	lw $s0, 0($sp) #restore saved $s0
+	addi $sp, $sp,4 #pop 1 item from stac k
+	beq $ra,$zero,L3 # if ra is zero jumps to l3
+	jr $ra # and return
+	
+L3:
+	j EvaluationLoop
+Testing:
+	move $t0,$s4
+	# Print "You typed: " to console
+	la	$a0, display	
+	li	$v0, 4
+	syscall
+	# Print the entered string to console
+	move $a0,$t0
+	li	$v0, 1
+	syscall
+j main
+	
+	
+ERROR: 
+# Print "ERROR: " to console
+	la	$a0, error	
+	li	$v0, 4
+	syscall
+j main
+
+Handleleftpara:
+	addi $s0,$s0,1 # i = i + i
+	add $t1,$s0,$a1 #addr of y[i] in $t1
+	lbu $t2, 0($t1) #$st2 = y[i]
+	li $t3,47
+	li $t4,42
+	li $t9,32
+	addi $s6,$s6,1 #counts the number of (
+	beq $t2,$t3, ERROR # HANDLES / ERROR
+	beq $t2,$t4, ERROR # HANDLES * ERROR
+	li $t9,32
+	beq $t2,$t9,Handleleftpara
+j RestorePointer
+
+Handlediv:
+	addi $s0,$s0,1 # i = i + i
+	add $t1,$s0,$a1 #addr of y[i] in $t1
+	lbu $t2, 0($t1) #$st2 = y[i]
+	li $t3,41 #places ascii ) in reg
+	li $t7,47#places ascii / in reg
+	li $t4,42#places ascii * in reg
+	beq $t2,$t3, ERROR # HANDLES ) ERROR
+	beq $t2,$t7, ERROR # HANDLES / ERROR
+	beq $t2,$t4, ERROR # HANDLES * ERROR
+	li $t9,32
+	beq $t2,$t9,Handlediv
+j RestorePointer
+
+HandlerightPara: # needs the most work
+	addi $s0,$s0,1 # i = i + i
+	add $t1,$s0,$a1 #addr of y[i] in $t1
+	lbu $t2, 0($t1) #$st2 = y[i]
+	li $a3,48
+	addi $s4,$s4,1 #counts the number of )
+	slt $t3,$t2,$a3
+	beq $t3,$zero, ERROR # HANDLES number or letter
+	
+j RestorePointer
+
+HandleAddition:
+addi $s0,$s0,1 # i = i + i
+add $t1,$s0,$a1 #addr of y[i] in $t1
+lbu $t2, 0($t1) #$st2 = y[i]
+li $t3,41 #places ascii ) in reg
+li $t7,47#places ascii / in reg
+li $t4,42#places ascii * in reg
+beq $t2,$t7, ERROR # HANDLES / ERROR
+beq $t2,$t4, ERROR # HANDLES * ERROR
+beq $t2,$t3, ERROR # HANDLES ) ERROR
+li $t9,32
+beq $t2,$t9,HandleAddition
+j RestorePointer
+
+HandleSubtract:
+addi $s0,$s0,1 # i = i + i
+add $t1,$s0,$a1 #addr of y[i] in $t1
+lbu $t2, 0($t1) #$st2 = y[i]
+li $t3,41 #places ascii ) in reg
+li $t7,47#places ascii / in reg
+li $t4,42#places ascii * in reg
+beq $t2,$t7, ERROR # HANDLES / ERROR
+beq $t2,$t4, ERROR # HANDLES * ERROR
+beq $t2,$t3, ERROR # HANDLES ) ERROR
+li $t9,32
+beq $t2,$t9,HandleSubtract
+j RestorePointer
+
+HandleMulti:
+addi $s0,$s0,1 # i = i + i
+add $t1,$s0,$a1 #addr of y[i] in $t1
+lbu $t2, 0($t1) #$st2 = y[i]
+li $t7,47#places ascii / in reg
+li $t4,42#places ascii * in reg
+beq $t2,$t7, ERROR # HANDLES / ERROR
+beq $t2,$t4, ERROR # HANDLES * ERROR
+li $t9,32
+beq $t2,$t9,HandleMulti
+j RestorePointer
+
+
+RestorePointer:
+    subi $s0,$s0,1 # i = i - 1
+    j ReturnFromCheck
+    
+    
+    
+    
+ # THIS PART OF THE CODE WILL EVAULATE AND STORE THE NUMBERS AND OPERATIONS
+EvaluationLoop:
+	addi $sp, $sp, -4 #adjust stack for 1 item
+	sw $s0, 0($sp)  # save $s0
+	add $s0, $zero, $zero #i = 0
+	li $s3,0 
+L5: add $t1,$s0,$a1 #addr of y[i] in $t1
+     lbu $t2, 0($t1) #$st2 = y[i]
+     li $t5,48
+     slt $t4,$t2,$t5
+     li $t8,12
+     li $t9,32
+     beq $t2,$t9,L9
+     beq $t4,$zero,NumPlace #If the input is a number jump to numplace
+     returnNum:
+     beq $s3,2,Evaluate # if 2 numbers have been entered evaluate number
+     returnEval:
+     move $s4,$s7
+     L10:addi $s0,$s0,1 # i = i + i
+     add $t1,$s0,$a1 #addr of y[i] in $t1
+     lbu $s6, 0($t1) #$s6 = y[i]
+     li $t9,32
+     beq $s6,$t9,L10
+     beq $s6, $zero,L7 # exit loop if y[i] == 0
+    L9: addi $s0,$s0,1 # i = i + i
+     j L5 #next iteration of loop
+L7: 
+lw $s0, 0($sp) #restore saved $s0
+addi $sp, $sp,4 #pop 1 item from stac k
+beq $ra,$zero,Testing # if ra is zero jumps to l3
+jr $ra # and return
+
+#Numplace will convert the number inputed to the appro. number ie 1 2 3 will turn into 123
+NumPlace:
+li $s7,0
+li $s5,0
+li $t8,10
+add $t1,$s0,$a1 #addr of y[i] in $t1
+lbu $t2, 0($t1) #$st2 = y[i]
+subi $t2,$t2,48
+slt $t5,$t2,$t8
+beq $t5,1,IncrementCount
+returnCount1:
+addi $s0,$s0,1 # i = i + i
+add $t1,$s0,$a1 #addr of y[i] in $t1
+lbu $t2, 0($t1) #$st2 = y[i]
+subi $t2,$t2,48
+slt $t5,$t2,$t8
+bltz $t2,returnCount3
+beq $t5,1,IncrementCount
+returnCount2:
+addi $s0,$s0,1 # i = i + i
+add $t1,$s0,$a1 #addr of y[i] in $t1
+lbu $t2, 0($t1) #$st2 = y[i]
+subi $t2,$t2,48
+slt $t5,$t2,$t8
+bltz $t2,returnCount3
+beq $t5,1,IncrementCount
+returnCount3:
+move $s2,$s5
+beq $s5,3,decCount
+returnDec:
+move $t2,$s5
+sub $s0,$s0,$t2
+
+beq $s2,3,HandleHund
+beq $s2,2,HandleTen
+beq $s2,1,HandleOnes
+
+decCount:
+subi $s5,$s5,1
+j returnDec
+
+
+
+
+#Counter used to count what number places to evaluate 
+IncrementCount:
+addi $s5,$s5,1
+beq $s5,1,returnCount1
+beq $s5,2,returnCount2
+beq $s5,3,returnCount3
+
+
+#Convert 100s place
+HandleHund:
+li $t8,10
+li $t9,100
+add $t1,$s0,$a1 #addr of y[i] in $t1
+lbu $t2, 0($t1) #$st2 = y[i]
+subi $t2,$t2,48
+mul $t2,$t2,$t9
+mflo $t2
+add $s7,$s7,$t2
+addi $s0,$s0,1 # i = i + i
+j HandleTen
+
+#This label will convert the digit at 10s place to the appro. number
+HandleTen:
+li $t8,10
+li $t9,10
+add $t1,$s0,$a1 #addr of y[i] in $t1
+lbu $t2, 0($t1) #$st2 = y[i]
+subi $t2,$t2,48
+mul $t2,$t2,$t9
+mflo $t2
+add $s7,$s7,$t2
+addi $s0,$s0,1 # i = i + i
+j HandleOnes
+
+#This label will convert the ones places and add it to $s7
+HandleOnes:
+	li $t8,10
+	add $t1,$s0,$a1 #addr of y[i] in $t1
+	lbu $t2, 0($t1) #$st2 = y[i]
+	subi $t2,$t2,48
+	add $s7,$s7,$t2
+	addi $s3,$s3,1
+j returnNum
+
+
+Evaluate:
+     li $t9,40 #places ascii ( in reg
+     li $t3,41 #places ascii ) in reg
+     li $t4,42#places ascii * in reg
+     li $t5,43#places ascii + in reg
+     li $t6,45#places ascii - in reg
+     li $t7,47#places ascii / in reg
+     li $t8,61#places ascii = in reg
+     #The next beq statements will check to see which operation will occur
+     beq $s6,$t4,EvalMulti
+     beq $s6,$t5,EvalAdd
+     beq $s6,$t6,EvalSub
+     beq $s6,$t7,EvalDiv
+answer:
+    subi $s3,$s3,1
+j returnEval
+
+#The next labels will evaulate the equation based on the operator
+EvalMulti:
+	mul $s7,$s7,$s4
+j answer
+
+EvalAdd:
+	add $s7,$s7,$s4
+j answer
+
+EvalSub:
+	sub $s7,$s4,$s7
+j answer
+
+EvalDiv:
+	div $s7,$s4,$s7
+j answer
+
+
+    
+    
+    
+    
+	
+	
